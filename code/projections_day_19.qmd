@@ -1,0 +1,108 @@
+---
+title: "Projections"
+format: html
+editor: visual
+---
+
+```{r}
+library(sf)
+library(ggplot2)
+library(rnaturalearth)
+library(rnaturalearthdata)
+library(patchwork)
+
+```
+```{r}
+# --- 1. Load global country boundaries ---
+world <- ne_countries(scale = "medium", returnclass = "sf")
+
+# --- 2. Define the Hobo–Dyer projection ---
+hobo_dyer <- "+proj=cea +lat_ts=37.383 +lon_0=0 +datum=WGS84 +units=m +no_defs"
+world_hd <- st_transform(world, hobo_dyer)
+
+# --- 3. Select highlight countries ---
+north_countries <- c("United States of America", "United Kingdom", "Germany")
+south_countries <- c("Brazil", "South Africa", "India")
+
+world_hd$highlight <- dplyr::case_when(
+  world_hd$name %in% north_countries ~ "Global North",
+  world_hd$name %in% south_countries ~ "Global South",
+  TRUE ~ "Other"
+)
+
+world$highlight <- dplyr::case_when(
+  world$name %in% north_countries ~ "Global North",
+  world$name %in% south_countries ~ "Global South",
+  TRUE ~ "Other"
+)
+
+```
+
+```{r}
+# --- 4. DARK THEME COLOR PALETTE ---
+fill_cols <- c(
+  "Global North" = "#21918c",
+  "Global South" = "#FDE725",
+  "Other" = "gray50"
+)
+
+dark_theme <- theme_minimal(base_size = 14) +
+  theme(
+    plot.background = element_rect(fill = "#0B0B0B", color = NA),
+    panel.background = element_rect(fill = "#0B0B0B", color = NA),
+    panel.grid = element_line(color = "#222222"),
+    legend.background = element_rect(fill = "#0B0B0B", color = NA),
+    legend.text = element_text(color = "white"),
+    legend.title = element_text(color = "white"),
+    plot.title = element_text(color = "white"),
+    plot.subtitle = element_text(color = "gray80"),
+    axis.text = element_text(color = "gray80"),
+    axis.title = element_blank()
+  )
+
+# --- 5. Hobo–Dyer south-up map ---
+p_hd <- ggplot(world_hd) +
+  geom_sf(aes(fill = highlight), color = "gray50", size = 0.08) +
+  scale_fill_manual(values = fill_cols) +
+  coord_sf(
+    expand = FALSE,
+    ylim = rev(range(st_bbox(world_hd)[c("ymin", "ymax")]))  # flipping
+  ) +
+  labs(
+    title = "Hobo–Dyer Projection (South-Up)",
+    subtitle = "Equal-area map"
+  ) +
+  dark_theme
+p_hd
+# --- 6. Mercator projection (normal orientation) ---
+p_merc <- ggplot(world) +
+  geom_sf(aes(fill = highlight), color = "gray50", size = 0.08) +
+  scale_fill_manual(values = fill_cols) +
+  coord_sf(expand = FALSE, crs = "+proj=merc") +
+  labs(
+    title = "Mercator Projection (North-Up)",
+    subtitle = "The map you always see !"
+  ) +
+  dark_theme
+p_merc
+
+```
+
+
+```{r}
+# --- Export Hobo–Dyer map (PNG) ---
+ggsave(
+  filename = "../outputs/hobodyer_map.png",
+  plot = p_hd,
+  width = 10, height = 6, units = "in",
+  dpi = 600, bg = "#0B0B0B"
+)
+
+# --- Export Mercator map (PNG) ---
+ggsave(
+  filename = "../outputs/mercator_map.png",
+  plot = p_merc,
+  width = 10, height = 6, units = "in",
+  dpi = 600, bg = "#0B0B0B"
+)
+
