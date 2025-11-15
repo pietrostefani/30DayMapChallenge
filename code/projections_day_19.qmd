@@ -10,15 +10,19 @@ library(ggplot2)
 library(rnaturalearth)
 library(rnaturalearthdata)
 library(patchwork)
-
+library(dplyr)
 ```
+
 ```{r}
 # --- 1. Load global country boundaries ---
 world <- ne_countries(scale = "medium", returnclass = "sf")
 
+world_no_antarctica <- world %>%
+  filter(admin != "Antarctica")
+
 # --- 2. Define the Hobo–Dyer projection ---
 hobo_dyer <- "+proj=cea +lat_ts=37.383 +lon_0=0 +datum=WGS84 +units=m +no_defs"
-world_hd <- st_transform(world, hobo_dyer)
+world_hd <- st_transform(world_no_antarctica, hobo_dyer)
 
 # --- 3. Select highlight countries ---
 north_countries <- c("United States of America", "United Kingdom", "Germany")
@@ -30,9 +34,9 @@ world_hd$highlight <- dplyr::case_when(
   TRUE ~ "Other"
 )
 
-world$highlight <- dplyr::case_when(
-  world$name %in% north_countries ~ "Global North",
-  world$name %in% south_countries ~ "Global South",
+world_no_antarctica$highlight <- dplyr::case_when(
+  world_no_antarctica$name %in% north_countries ~ "Global North",
+  world_no_antarctica$name %in% south_countries ~ "Global South",
   TRUE ~ "Other"
 )
 
@@ -74,8 +78,9 @@ p_hd <- ggplot(world_hd) +
   ) +
   dark_theme
 p_hd
+
 # --- 6. Mercator projection (normal orientation) ---
-p_merc <- ggplot(world) +
+p_merc <- ggplot(world_no_antarctica) +
   geom_sf(aes(fill = highlight), color = "gray50", size = 0.08) +
   scale_fill_manual(values = fill_cols) +
   coord_sf(expand = FALSE, crs = "+proj=merc") +
@@ -88,21 +93,11 @@ p_merc
 
 ```
 
-
 ```{r}
-# --- Export Hobo–Dyer map (PNG) ---
-ggsave(
-  filename = "../outputs/hobodyer_map.png",
-  plot = p_hd,
-  width = 10, height = 6, units = "in",
-  dpi = 600, bg = "#0B0B0B"
-)
+# --- Export Hobo–Dyer map (PNG) --- 
+ggsave( filename = "../outputs/hobodyer_map.png", plot = p_hd, width = 10, height = 6, units = "in", dpi = 600, bg = "#0B0B0B" )
 
 # --- Export Mercator map (PNG) ---
-ggsave(
-  filename = "../outputs/mercator_map.png",
-  plot = p_merc,
-  width = 10, height = 6, units = "in",
-  dpi = 600, bg = "#0B0B0B"
-)
+ggsave( filename = "../outputs/mercator_map.png", plot = p_merc, width = 10, height = 6, units = "in", dpi = 600, bg = "#0B0B0B" )
+```
 
