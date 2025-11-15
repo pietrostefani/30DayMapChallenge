@@ -1,0 +1,67 @@
+---
+title: "lebanon_hdx"
+output: html_document
+date: "2024-11-06"
+---
+
+```{r setup, include=FALSE}
+knitr::opts_chunk$set(echo = TRUE)
+```
+
+```{r}
+library(sf)
+library(dplyr)
+library(tmap)
+Lebanon_pop_density <- read_sf("../data_2024/pop_acled_lebanon.shp")
+Lebanon_acled <- read_sf("../data_2024/acled_2023_2024_Lebanon.shp")
+
+# Filter Lebanon_pop_density for population values above 500
+Lebanon_pop_density_filtered <- Lebanon_pop_density %>%
+  filter(population > 500) %>%
+  mutate(pop_category = case_when(
+    population >= 500 & population <= 5000 ~ "500 - 5,000",
+    population > 5000 & population <= 20000 ~ "5,001 - 20,000",
+    population > 20000 & population <= 40000 ~ "20,001 - 40,000"
+  ))
+
+# Define a custom blue palette starting with a darker blue
+custom_blue_palette <- c("#0B2C49CC", "#1E6091AA", "#A9D6E5CC")  # Gradient from dark to light blue
+
+# Set tmap mode to interactive
+tmap_mode("view")
+
+# Plot the datasets with custom blue palette, basemap, and improved legends
+tm_shape(Lebanon_pop_density_filtered, name = "HDX population counts") + 
+  tm_basemap("CartoDB.PositronNoLabels") +
+  tm_polygons("pop_category", 
+              palette = custom_blue_palette, 
+              title = "Population",
+              labels = c("20,001 - 40,000", "5,001 - 20,000", "500 - 5,000")) +
+tm_shape(Lebanon_acled, name = "Conflict events") + 
+  tm_dots(col = "yellow", 
+          border.col = "darkred", 
+          size = 0.010, 
+          title = "ACLED Conflict Events",  
+          legend.show = TRUE) +
+  tm_layout(title = "Population and conflict events in Lebanon 2023-2024",
+            legend.outside = TRUE, 
+            legend.title.size = 1.2,
+            legend.text.size = 0.8,
+            legend.bg.color = "white",
+            legend.frame = TRUE) +
+  tm_view(view.legend.position = c("left", "bottom")) +
+  tm_scale_bar(position = c("right", "bottom")) +  # Add scale bar
+  tm_credits("Data Sources: Population Data 2024, ACLED Conflict Data 2023-2024", 
+             position = c("right", "top"), 
+             size = 0.8) +
+  tm_add_legend(type = "symbol", 
+                labels = "ACLED Conflict Events", 
+                col = "yellow", 
+                border.col = "darkred", 
+                size = 0.05) 
+
+
+```
+
+
+

@@ -1,0 +1,125 @@
+---
+title: "Bivariate map"
+author: "Elisabetta Pietrostefani"
+date: "2023-11-08"
+output: html_document
+---
+
+```{r setup, include=FALSE}
+knitr::opts_chunk$set(echo = TRUE)
+```
+
+```{r}
+library(sf)
+library(biscale)
+library(dplyr)
+library(ggplot2)
+library(cowplot)
+#library(basemapR)
+library(basemaps)
+#library(ggspatial)
+#library(ggmap)
+
+gaza_admin <- read_sf("data/gaza_admin2.shp")
+gaza_hex <- read_sf("data/grid_500_pois_build.shp")
+gaza_buil <- read_sf("data/building_gaza.shp")
+
+gaza_hex$n_pois[is.na(gaza_hex$n_pois)] <- 0
+
+gaza_hex <- gaza_hex %>%
+  mutate(n_pois_category = case_when(
+    n_pois == 0 ~ 0,
+    n_pois >= 1 & n_pois <= 10 ~ 1,
+    n_pois > 10 & n_pois <= 50 ~ 2,
+    n_pois > 50 ~ 3,
+    TRUE ~ NA_real_  # Handle other cases as NA
+  ))
+
+gaza_hex_bis <- gaza_hex[gaza_hex$n_pois_category != "0", ]
+gaza_hex_bis <- gaza_hex_bis[gaza_hex_bis$av_destruc != "0", ]
+```
+
+```{r}
+# draw extent
+ext <- draw_ext()
+ext
+
+#get_maptypes()
+
+# set defaults for the basemap
+set_defaults(map_service = "carto", map_type = "light_no_labels")
+
+#as ggplot2:
+basemap_ggplot(ext)
+
+ggplot() + 
+  basemap_gglayer(ext) +
+  scale_fill_identity() + 
+  coord_sf()
+
+```
+
+
+```{r}
+# create classes
+#data <- bi_class(gaza_hex, x = av_destruc, y = n_pois_category, style = "quantile", dim = 3)
+
+data <- bi_class(gaza_hex_bis, x = av_destruc, y = n_pois_category, style = "quantile", dim = 3)
+
+```
+
+```{r}
+# make sure to use Web/Pseudo Mercator (EPSG 3857)
+st_crs(gaza_hex_bis)
+gaza_hex_bis <- st_transform(gaza_hex_bis, 3857)
+st_crs(gaza_hex_bis)
+# For extent
+ext <- st_transform(ext, crs = st_crs(3857))
+
+ggplot() + 
+  basemap_gglayer(ext) +
+  scale_fill_identity() + 
+  coord_sf() +
+  geom_sf(data = data, mapping = aes(fill = bi_class), color = "#2a2b2a", size = 0.1, alpha = 0.7, show.legend = FALSE) +
+  bi_scale_fill(pal = "DkViolet2", dim = 3) +
+  labs(subtitle = "", caption = "Data source: POIs OpenStreetMap; OpenStreetMap building footprint, Sentinel-1 radar") +
+  bi_theme() +
+  theme(plot.caption = element_text(size = 7))  # Adjust the title size as needed
+  #coord_sf(xlim = c(34.20406, 34.57262), ylim = c(31.21163, 31.63442)) +
+  #coord_sf()
+  #scale_fill_identity() 
+
+```
+
+
+```{r}
+# Create a map with Gaza administrative boundaries
+map <- ggplot() +
+  #geom_sf(data = gaza_buil, fill = "transparent", color = "#a7aaab", size = 0.1) +
+  geom_sf(data = data, mapping = aes(fill = bi_class), color = "#2a2b2a", size = 0.1, alpha = 0.7, show.legend = FALSE) +  # Your data
+  bi_scale_fill(pal = "DkViolet2", dim = 3) +
+  geom_sf(data = gaza_admin, fill = "transparent", color = "black", size = 0.2) + 
+  labs(subtitle = "", caption = "Data source: POIs OpenStreetMap; OpenStreetMap building footprint, Sentinel-1 radar") +
+  bi_theme() +
+  theme(plot.caption = element_text(size = 7))  # Adjust the title size as needed
+
+
+legend <- bi_legend(pal = "DkViolet2",
+                    dim = 3,
+                    xlab = "Damage",
+                    ylab = "POIs",
+                    size = 7)
+
+# combine map with legend
+finalPlot <- ggdraw() +
+  draw_plot(map, 0, 0, 1, 1) +
+  draw_plot(legend, 0.2, .65, 0.2, 0.2)
+
+finalPlot
+
+ggsave("maps/test_map_2.png", width = 8, height = 8, dpi = 400)
+
+```
+
+https://rpubs.com/Saina_Sheini/905637 
+
